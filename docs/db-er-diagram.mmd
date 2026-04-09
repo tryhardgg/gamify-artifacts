@@ -1,0 +1,277 @@
+erDiagram
+  PLAYERS {
+    uuid id PK
+    uuid auth_user_id FK
+    text username
+    text avatar_url
+    jsonb settings
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  WALLETS {
+    uuid id PK
+    uuid player_id FK
+    bigint balance
+    text currency
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  TRANSACTIONS {
+    uuid id PK
+    uuid wallet_id FK
+    uuid player_id FK
+    text type
+    bigint amount
+    text source_module
+    uuid source_id
+    text description
+    timestamptz created_at
+  }
+
+  ITEMS {
+    uuid id PK
+    text code
+    text name
+    text description
+    text rarity
+    jsonb metadata
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  INVENTORY_ITEMS {
+    uuid id PK
+    uuid player_id FK
+    uuid item_id FK
+    integer quantity
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  PRODUCTS {
+    uuid id PK
+    text code
+    text name
+    text description
+    bigint price
+    text currency
+    uuid item_id FK
+    integer item_quantity
+    integer stock_quantity
+    integer stock_limit
+    text category
+    boolean is_active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  PURCHASES {
+    uuid id PK
+    uuid player_id FK
+    uuid product_id FK
+    uuid transaction_id FK
+    uuid granted_item_id FK
+    integer granted_quantity
+    text status
+    text decline_reason
+    timestamptz created_at
+  }
+
+  ARTIFACTS {
+    uuid id PK
+    uuid player_id FK
+    text title
+    text description
+    text category
+    text lifecycle_status
+    text current_stage
+    integer progress_total
+    integer progress_today
+    timestamptz deadline
+    integer quality_score
+    integer rarity
+    boolean reward_calculated
+    uuid template_id FK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  ARTIFACT_STAGES {
+    uuid id PK
+    uuid artifact_id FK
+    text stage
+    timestamptz started_at
+    timestamptz completed_at
+    jsonb data
+  }
+
+  ARTIFACT_TASK_LINKS {
+    uuid id PK
+    uuid artifact_id FK
+    uuid singularity_task_id FK
+    text link_type
+    timestamptz created_at
+  }
+
+  ARTIFACT_EVALUATIONS {
+    uuid id PK
+    uuid artifact_id FK
+    jsonb criteria
+    integer total_quality
+    integer rarity
+    timestamptz completed_at
+  }
+
+  ARTIFACT_REWARDS {
+    uuid id PK
+    uuid artifact_id FK
+    bigint currency_amount
+    uuid currency_transaction_id FK
+    uuid granted_item_id FK
+    integer granted_quantity
+    timestamptz created_at
+  }
+
+  ARTIFACT_TEMPLATES {
+    uuid id PK
+    text name
+    text category
+    jsonb rule
+    bigint base_reward_currency
+    uuid base_reward_item_id FK
+    integer base_reward_quantity
+    boolean is_active
+    timestamptz created_at
+  }
+
+  HABITS {
+    uuid id PK
+    uuid player_id FK
+    text name
+    text description
+    text type
+    time target_time_from
+    time target_time_to
+    integer target_duration_minutes
+    integer level
+    numeric xp
+    numeric xp_to_next_level
+    integer streak_current
+    integer streak_best
+    jsonb short_term_buffs
+    jsonb long_term_buffs
+    bigint reward_currency
+    uuid reward_item_id FK
+    integer reward_quantity
+    boolean is_active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  HABIT_LOGS {
+    uuid id PK
+    uuid habit_id FK
+    uuid player_id FK
+    date date
+    text status
+    numeric xp_earned
+    integer streak_after
+    text notes
+    timestamptz created_at
+  }
+
+  HABIT_REWARDS {
+    uuid id PK
+    uuid habit_log_id FK
+    uuid transaction_id FK
+    uuid granted_item_id FK
+    integer granted_quantity
+    timestamptz created_at
+  }
+
+  SINGULARITY_TASKS {
+    uuid id PK
+    uuid player_id FK
+    text external_id
+    text title
+    text description
+    text status
+    text[] tags
+    jsonb raw_data
+    timestamptz completed_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  TASK_MAPPINGS {
+    uuid id PK
+    uuid player_id FK
+    text[] tag_filter
+    text artifact_category
+    uuid artifact_template_id FK
+    boolean is_active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  SYNC_LOGS {
+    uuid id PK
+    uuid player_id FK
+    timestamptz started_at
+    timestamptz finished_at
+    integer tasks_fetched
+    integer tasks_processed
+    jsonb errors
+    text status
+  }
+
+  SINGULARITY_HABITS {
+    uuid id PK
+    uuid player_id FK
+    text external_id
+    text name
+    jsonb raw_data
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  PLAYERS ||--|| WALLETS : "один игрок - один кошелек"
+  PLAYERS ||--o{ INVENTORY_ITEMS : "один игрок - много записей инвентаря"
+  PLAYERS ||--o{ PURCHASES : "один игрок - много покупок"
+  PLAYERS ||--o{ ARTIFACTS : "один игрок - много артефактов"
+  PLAYERS ||--o{ HABITS : "один игрок - много привычек"
+  PLAYERS ||--o{ SINGULARITY_TASKS : "один игрок - много задач Singularity"
+  PLAYERS ||--o{ TASK_MAPPINGS : "один игрок - много правил маппинга"
+  PLAYERS ||--o{ SYNC_LOGS : "один игрок - много логов синхронизации"
+  PLAYERS ||--o{ SINGULARITY_HABITS : "один игрок - много внешних привычек"
+
+  WALLETS ||--o{ TRANSACTIONS : "один кошелек - много транзакций"
+  PLAYERS ||--o{ TRANSACTIONS : "денормализованная связь игрока с транзакциями"
+  PLAYERS ||--o{ HABIT_LOGS : "денормализованная связь игрока с логами привычек"
+
+  ITEMS ||--o{ INVENTORY_ITEMS : "один тип предмета - в инвентаре многих игроков"
+
+  PRODUCTS ||--o{ PURCHASES : "один продукт - много покупок"
+  ITEMS ||--o{ PRODUCTS : "один тип предмета - в товарах магазина"
+
+  TRANSACTIONS ||--o{ PURCHASES : "списание валюты за покупку товара"
+
+  ARTIFACTS ||--o{ ARTIFACT_STAGES : "один артефакт - много стадий"
+  ARTIFACTS ||--o{ ARTIFACT_TASK_LINKS : "один артефакт - много связей с задачами"
+  ARTIFACTS ||--o{ ARTIFACT_EVALUATIONS : "один артефакт - много оценок"
+  ARTIFACTS ||--|| ARTIFACT_REWARDS : "один артефакт - одна запись награды"
+  ARTIFACT_TEMPLATES ||--o{ ARTIFACTS : "один шаблон - много артефактов"
+
+  SINGULARITY_TASKS ||--o{ ARTIFACT_TASK_LINKS : "одна задача - связи с многими артефактами"
+
+  TRANSACTIONS ||--o{ ARTIFACT_REWARDS : "одна транзакция - часть награды за артефакт"
+  ITEMS ||--o{ ARTIFACT_REWARDS : "один тип предмета - в наградах многих артефактов"
+
+  HABITS ||--o{ HABIT_LOGS : "одна привычка - много логов"
+  HABIT_LOGS ||--|| HABIT_REWARDS : "один лог - одна запись награды"
+  TRANSACTIONS ||--o{ HABIT_REWARDS : "валютная часть награды за привычку"
+  ITEMS ||--o{ HABIT_REWARDS : "предметная часть награды за привычку"
+
+  ARTIFACT_TEMPLATES ||--o{ TASK_MAPPINGS : "шаблон артефакта в правилах маппинга"
