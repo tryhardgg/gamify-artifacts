@@ -65,9 +65,9 @@
 | `player_id` | uuid, FK → players.id | Денормализовано для удобства запросов (источник истины — `wallets.player_id`) |
 | `type` | text | Тип транзакции: `reward`, `purchase`, `habit_reward`, `artifact_reward`, `bonus`, `correction`, `refund` |
 | `amount` | bigint | Сумма со знаком: `+` для начислений, `−` для списаний |
-| `source_module` | text | Модуль-инициатор: `artifacts`, `habits`, `shop`, `manual`, `system` |
+| `source_module` | text | Модуль-инициатор: `artifacts`, `habits`, `shop`, `manual` (ручная корректировка), `system` (стартовый баланс, системные исправления) |
 | `source_id` | uuid, nullable | Идентификатор сущности-источника (artifact_id, habit_log_id, purchase_id и т.п.) |
-| `description` | text, nullable | Человекочитаемое описание операции |
+| `description` | text, nullable | Человекочитаемое описание. Примеры: `source_module = 'system'` + `description = 'Initial welcome bonus'`; `source_module = 'manual'` + `description = 'Ручная корректировка: +500 GAF'` |
 | `created_at` | timestamptz, default now() | Дата и время совершения транзакции |
 
 **Инвариант:** `wallets.balance` = SUM(transactions.amount) для данного wallet_id. Модуль Economy гарантирует это при каждой операции.
@@ -170,8 +170,8 @@
 | `progress_total` | integer, default 0, check 0–100 | Общий процент выполнения артефакта (0–100%), отображается на Dashboard |
 | `progress_today` | integer, default 0, check >= 0 | Процент прогресса, сделанный за текущий день (для визуализации ежедневной динамики) |
 | `deadline` | timestamptz, nullable | Дедлайн завершения артефакта; по истечении статус меняется на `overdue` |
-| `quality_score` | integer, nullable | Итоговое качество, рассчитанное на стадии review |
-| `rarity` | integer, nullable | Редкость артефакта (0–5), рассчитанная на стадии review |
+| `quality_score` | integer, nullable | Итоговое качество, рассчитанное на стадии review. Копируется из `artifact_evaluations.total_quality` при завершении оценки (денормализованный кэш для быстрого доступа). |
+| `rarity` | integer, nullable | Редкость артефакта (0–5), рассчитанная на стадии review. Копируется из `artifact_evaluations.rarity` при завершении оценки (денормализованный кэш). При переоценке обновляется из последней записи `artifact_evaluations` (по `completed_at`). |
 | `reward_calculated` | boolean, default false | Флаг: награда за артефакт уже начислена (true) или ещё нет (false) |
 | `template_id` | uuid, nullable, FK → artifact_templates.id | Шаблон, по которому был автоматически создан артефакт |
 | `created_at` | timestamptz, default now() | Дата и время создания артефакта |
@@ -238,6 +238,19 @@
 
 > **Примечание:** VISION — это специализированный тип артефакта внутри существующего модуля Artifacts. Новый модуль для VISION не вводится. Всё реализуется через `category = 'VISION'` + `metadata` jsonb.
 
+**Фиксированные значения полей для VISION:**
+
+| Поле | Значение для VISION | Пояснение |
+|------|---------------------|-----------|
+| `lifecycle_status` | `'active'` или `'archived'` | VISION не имеет статусов `completed`, `overdue`, `cancelled` |
+| `current_stage` | `null` | VISION не проходит 4-стадийный цикл |
+| `progress_total` | `0` | Прогресс не рассчитывается |
+| `progress_today` | `0` | Ежедневный прогресс не рассчитывается |
+| `deadline` | `null` | VISION — долгоживущий артефакт без дедлайна |
+| `reward_calculated` | `false` | Награды не начисляются |
+| `quality_score` | `null` | Оценка не проводится |
+| `rarity` | `null` | Редкость не рассчитывается |
+
 ### 5.2. Таблица `artifact_stages`
 
 Детализация по стадиям: когда начата, когда завершена, данные стадии.
@@ -303,7 +316,7 @@
 | `id` | uuid, PK | Уникальный идентификатор шаблона артефакта |
 | `name` | text | Человекочитаемое название шаблона |
 | `category` | text | Категория артефактов, к которой применяется шаблон |
-| `rule` | jsonb | Правило маппинга: какие теги/типы задач Singularity порождают артефакт по этому шаблону |
+| `rule` | jsonb | Правило маппинга задач Singularity на этот шаблон. Минимальный контракт: `{"tag_any": [...], "tag_all": [...], "exclude_tags": [...]}`. Логика: (1) exclude_tags блокирует шаблон; (2) tag_all — все теги должны присутствовать; (3) tag_any — хотя бы один тег должен присутствовать. Опциональное поле `max_per_task` (integer, default 1) — макс. артефактов на одну задачу |
 | `base_reward_currency` | bigint, default 0 | Базовая награда в валюте при завершении артефакта, созданного по шаблону |
 | `base_reward_item_id` | uuid, FK → items.id, nullable | Базовый предмет в награде за артефакт по шаблону |
 | `base_reward_quantity` | integer, default 0 | Базовое количество предмета в награде |
@@ -500,3 +513,4 @@ players
 | `artifact_rewards.currency_transaction_id` → валидная транзакция в Economy | Artifacts + Economy |
 | `purchases.status = 'completed'` → `transaction_id` не null | Shop + Economy |
 | `singularity_tasks (player_id, external_id)` — уникальны | SingularityIntegration |
+| Один активный VISION на игрока: `UNIQUE (player_id) WHERE category = 'VISION' AND lifecycle_status = 'active'` | Artifacts |
