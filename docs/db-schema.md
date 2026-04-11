@@ -460,7 +460,67 @@
 
 ---
 
-## 8. Сводная диаграмма связей
+## 8. OKR (Личные цели)
+
+Личные OKR — отдельный слой над VISION, не артефакты и не часть интеграции с Singularity. В MVP все значения по KR задаются вручную через интерфейс приложения.
+
+### 8.1. Таблица `okr_objectives`
+
+Цели игрока на период в конкретной сфере VISION.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор цели |
+| `player_id` | uuid, FK → players.id | Игрок‑владелец цели |
+| `sphere` | text | Сфера VISION: `state` (Тело и энергия), `finances` (Деньги и свобода), `hobbies` (Хобби), `relationships` (Любовь и близость) |
+| `title` | text | Краткая формулировка цели (Objective) |
+| `description` | text, nullable | Развёрнутое описание/контекст цели |
+| `period` | text | Период OKR, например: `2026-Q2`, `2026-H1`, `2026` |
+| `weight` | integer, default 1 | Вес цели внутри сферы (для будущей взвешенной агрегации прогресса по сфере) |
+| `status` | text, default 'active' | Статус цели: `active`, `completed`, `archived` |
+| `created_at` | timestamptz, default now() | Дата и время создания цели |
+| `updated_at` | timestamptz, default now() | Дата и время последнего изменения цели |
+
+**Примечания:**
+
+- В MVP прогресс цели не кэшируется в этой таблице, а вычисляется по связанным KR.
+- Возможен более чем один Objective на сферу и период, но рекомендуется ограничивать их количество бизнес‑логикой (например, 1–3 цели на сферу за период).
+
+### 8.2. Таблица `okr_key_results`
+
+Измеримые результаты (Key Results) для каждой цели.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор ключевого результата |
+| `objective_id` | uuid, FK → okr_objectives.id | Цель, к которой относится KR |
+| `player_id` | uuid, FK → players.id | Игрок‑владелец KR (денормализовано для удобства выборок) |
+| `sphere` | text | Сфера VISION, дублирующая `okr_objectives.sphere` (источник истины — цель) |
+| `title` | text | Формулировка KR (измеримый результат) |
+| `type` | text, default 'numeric' | Тип KR: `numeric` (числовой), `binary` (сделано/нет), `qualitative` (оценка 0–1 по ощущениям) |
+| `unit` | text, nullable | Единицы измерения: `%`, `steps`, `RUB`, `kg`, `hours_per_week`, `times_per_week` и т.п. |
+| `start_date` | date | Дата начала отслеживания KR |
+| `end_date` | date | Дата окончания (дедлайн) KR |
+| `start_value` | numeric | Стартовое значение метрики |
+| `current_value` | numeric | Текущее значение метрики (обновляется вручную через UI) |
+| `target_value` | numeric | Целевое значение метрики к `end_date` |
+| `progress_percent` | numeric, default 0 | Процент выполнения KR: 0–100 (кэшируется из `current_value` и `target_value`) |
+| `okr_score` | numeric, default 0 | Оценка KR по шкале OKR: 0–1 (например, 0.3 / 0.7 / 1.0) |
+| `status` | text, default 'start' | Статус по порогам: `start` (0–30%), `in_progress` (30–70%), `near_goal` (70–99%), `done` (>=100%) |
+| `comment` | text, nullable | Свободный комментарий/заметки по KR |
+| `last_updated_at` | timestamptz, default now() | Дата и время последнего обновления KR |
+
+**Примечания:**
+
+- Поле «осталось дней» (`days_left`) **не хранится** в БД, а вычисляется на лету как `end_date - current_date` и может возвращаться в API‑ответах для UI.
+- Расчёт `progress_percent`, `okr_score` и производного `status` выполняется бизнес‑логикой (или DB‑функцией); таблица хранит кэш.
+- **Формула прогресса (numeric):** `progress_percent = ((current_value - start_value) / NULLIF(target_value - start_value, 0)) × 100`, ограничено 0–100.
+- **OKR‑оценка:** `okr_score = progress_percent / 100`, ограничено 0–1.
+- **Статус по порогам:** `start` (0–30%), `in_progress` (30–70%), `near_goal` (70–99%), `done` (>=100%).
+
+---
+
+## 9. Сводная диаграмма связей
 
 ```
 players
@@ -477,6 +537,8 @@ players
   ├── habits (1:N)
   │     ├── habit_logs (1:N)
   │     └── habit_rewards (1:N) ──→ transactions, items
+  ├── okr_objectives (1:N)
+  │     └── okr_key_results (1:N)
   └── singularity_tasks (1:N)
         └── artifact_task_links (1:N)
   └── task_mappings (1:N) ──→ artifact_templates
@@ -514,3 +576,5 @@ players
 | `purchases.status = 'completed'` → `transaction_id` не null | Shop + Economy |
 | `singularity_tasks (player_id, external_id)` — уникальны | SingularityIntegration |
 | Один активный VISION на игрока: `UNIQUE (player_id) WHERE category = 'VISION' AND lifecycle_status = 'active'` | Artifacts |
+| Один KR всегда принадлежит одному Objective | OKR |
+| `okr_key_results.sphere` = `okr_objectives.sphere` (источник истины — цель) | OKR |
