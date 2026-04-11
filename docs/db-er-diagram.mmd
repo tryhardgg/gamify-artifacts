@@ -237,6 +237,39 @@ erDiagram
     timestamptz updated_at
   }
 
+  OKR_OBJECTIVES {
+    uuid id PK
+    uuid player_id FK
+    text sphere
+    text title
+    text description
+    text period
+    integer weight
+    text status
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  OKR_KEY_RESULTS {
+    uuid id PK
+    uuid objective_id FK
+    uuid player_id FK
+    text sphere
+    text title
+    text type
+    text unit
+    date start_date
+    date end_date
+    numeric start_value
+    numeric current_value
+    numeric target_value
+    numeric progress_percent
+    numeric okr_score
+    text status
+    text comment
+    timestamptz last_updated_at
+  }
+
   PLAYERS ||--|| WALLETS : "один игрок - один кошелек"
   PLAYERS ||--o{ INVENTORY_ITEMS : "один игрок - много записей инвентаря"
   PLAYERS ||--o{ PURCHASES : "один игрок - много покупок"
@@ -246,6 +279,7 @@ erDiagram
   PLAYERS ||--o{ TASK_MAPPINGS : "один игрок - много правил маппинга"
   PLAYERS ||--o{ SYNC_LOGS : "один игрок - много логов синхронизации"
   PLAYERS ||--o{ SINGULARITY_HABITS : "один игрок - много внешних привычек"
+  PLAYERS ||--o{ OKR_OBJECTIVES : "один игрок - много целей OKR"
 
   WALLETS ||--o{ TRANSACTIONS : "один кошелек - много транзакций"
   PLAYERS ||--o{ TRANSACTIONS : "денормализованная связь игрока с транзакциями"
@@ -275,3 +309,5 @@ erDiagram
   ITEMS ||--o{ HABIT_REWARDS : "предметная часть награды за привычку"
 
   ARTIFACT_TEMPLATES ||--o{ TASK_MAPPINGS : "шаблон артефакта в правилах маппинга"
+
+  OKR_OBJECTIVES ||--o{ OKR_KEY_RESULTS : "одна цель - много ключевых результатов"
