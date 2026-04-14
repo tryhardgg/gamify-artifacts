@@ -15,8 +15,7 @@
 
 Всегда используй документацию в папке docs/ как источник правды:
 - docs/overview.md — цели и идея проекта
-- docs/architecture.md — общая архитектура
-- docs/domain-model.md — доменные модули
+- docs/domain-model.md — доменные модули и общая архитектура
 - docs/ui-screens.md — экраны фронта
 - docs/integration/singularity.md — интеграция с Singularity
 - файлы в docs/api/ — спецификации Edge Functions
@@ -65,7 +64,7 @@
 Перед началом работы прочитай:
 - docs/ai-guidelines.md (правила)
 - docs/domain-model.md (доменные модули)
-- docs/architecture.md (архитектура)
+- docs/domain-model.md (доменные модули и архитектура)
 - docs/api/ (соответствующие спецификации, если есть)
 - Существующий код Edge Functions в репозитории
 
@@ -142,8 +141,7 @@
 
 Файлы документации, которые нужно обновить:
 - docs/overview.md — если изменились цели или идея проекта
-- docs/architecture.md — если изменилась общая архитектура
-- docs/domain-model.md — если изменились доменные модули или их ответственность
+- docs/domain-model.md — если изменились доменные модули или общая архитектура
 - docs/ui-screens.md — если изменились экраны или UI
 - docs/integration/singularity.md — если изменилась интеграция с Singularity
 - docs/api/ — если изменились контракты Edge Functions
@@ -181,7 +179,7 @@
 1. Прочитай соответствующие файлы в docs/:
    - docs/ai-guidelines.md (правила)
    - docs/domain-model.md (доменные модули)
-   - docs/architecture.md (архитектура)
+   - docs/domain-model.md (доменные модули и архитектура)
    - Другие релевантные файлы из docs/
 
 2. Найди и прочитай весь существующий код, который относится к этой задаче:

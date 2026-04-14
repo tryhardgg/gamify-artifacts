@@ -237,17 +237,39 @@ erDiagram
     timestamptz updated_at
   }
 
+  OKR_QUARTERS {
+    uuid id PK
+    text code
+    date start_date
+    date end_date
+    timestamptz created_at
+  }
+
   OKR_OBJECTIVES {
     uuid id PK
     uuid player_id FK
+    uuid quarter_id FK
     text sphere
     text title
+    text purpose
+    text objective_type
     text description
-    text period
     integer weight
     text status
+    text result_status
+    boolean is_pinned
+    uuid parent_objective_id FK
     timestamptz created_at
     timestamptz updated_at
+  }
+
+  OBJECTIVE_IMAGES {
+    uuid id PK
+    uuid objective_id FK
+    uuid player_id FK
+    text storage_path
+    integer sort_order
+    timestamptz created_at
   }
 
   OKR_KEY_RESULTS {
@@ -258,6 +280,7 @@ erDiagram
     text title
     text type
     text unit
+    integer weight
     date start_date
     date end_date
     numeric start_value
@@ -267,7 +290,52 @@ erDiagram
     numeric okr_score
     text status
     text comment
+    text source
     timestamptz last_updated_at
+  }
+
+  OKR_KR_LOG {
+    uuid id PK
+    uuid kr_id FK
+    uuid objective_id FK
+    uuid player_id FK
+    text event_type
+    jsonb old_value
+    jsonb new_value
+    text note
+    timestamptz created_at
+    uuid created_by FK
+  }
+
+  RETROSPECTIVE_NOTES {
+    uuid id PK
+    uuid quarter_id FK
+    uuid player_id FK
+    text what_went_well
+    text what_didnt_work
+    text what_to_change
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  ACHIEVEMENTS {
+    uuid id PK
+    text code
+    text name
+    text description
+    text icon
+    text type
+    text rarity
+    boolean is_active
+    timestamptz created_at
+  }
+
+  USER_ACHIEVEMENTS {
+    uuid id PK
+    uuid player_id FK
+    uuid achievement_id FK
+    timestamptz earned_at
+    jsonb context
   }
 
   PLAYERS ||--|| WALLETS : "один игрок - один кошелек"
@@ -280,6 +348,8 @@ erDiagram
   PLAYERS ||--o{ SYNC_LOGS : "один игрок - много логов синхронизации"
   PLAYERS ||--o{ SINGULARITY_HABITS : "один игрок - много внешних привычек"
   PLAYERS ||--o{ OKR_OBJECTIVES : "один игрок - много целей OKR"
+  PLAYERS ||--o{ RETROSPECTIVE_NOTES : "один игрок - много записей ретроспективы"
+  PLAYERS ||--o{ USER_ACHIEVEMENTS : "один игрок - много достижений"
 
   WALLETS ||--o{ TRANSACTIONS : "один кошелек - много транзакций"
   PLAYERS ||--o{ TRANSACTIONS : "денормализованная связь игрока с транзакциями"
@@ -310,4 +380,11 @@ erDiagram
 
   ARTIFACT_TEMPLATES ||--o{ TASK_MAPPINGS : "шаблон артефакта в правилах маппинга"
 
+  OKR_QUARTERS ||--o{ OKR_OBJECTIVES : "один квартал - много целей"
+  OKR_QUARTERS ||--o{ RETROSPECTIVE_NOTES : "один квартал - одна запись ретроспективы"
   OKR_OBJECTIVES ||--o{ OKR_KEY_RESULTS : "одна цель - много ключевых результатов"
+  OKR_OBJECTIVES ||--o{ OBJECTIVE_IMAGES : "одна цель - много картинок"
+  OKR_OBJECTIVES ||--o{ OKR_OBJECTIVES : "перенос между кварталами (parent)"
+  OKR_OBJECTIVES ||--o{ OKR_KR_LOG : "одна цель - много событий лога"
+  OKR_KEY_RESULTS ||--o{ OKR_KR_LOG : "один KR - много событий лога"
+  ACHIEVEMENTS ||--o{ USER_ACHIEVEMENTS : "один шаблон - много выдач"

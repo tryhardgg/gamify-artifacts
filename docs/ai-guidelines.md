@@ -8,9 +8,7 @@
 Всегда используй документацию в папке docs/ как источник правды:
 docs/overview.md — цели и идея проекта;
 
-docs/architecture.md — общая архитектура;
-
-docs/domain-model.md — доменные модули;
+docs/domain-model.md — доменные модули и общая архитектура;
 
 docs/ui-screens.md — экраны фронта;
 

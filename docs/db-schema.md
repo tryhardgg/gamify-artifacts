@@ -526,7 +526,7 @@
 | `objective_type` | text, default 'normal' | Тип цели: `normal` (обычная), `stretch` (амбициозная), `crazy` (экстремальная). Выбирается при создании, не вычисляется автоматически. |
 | `description` | text, nullable | Развёрнутое описание/контекст цели |
 | `weight` | integer, default 1 | Вес цели внутри сферы (для будущей взвешенной агрегации прогресса по сфере) |
-| `status` | text, default 'draft' | Статус цели: `draft` (черновик), `active` (рабочая), `completed` (квартал завершён), `archived` (в истории) |
+| `status` | text, default 'draft' | Статус цели: `draft` (черновик), `active` (рабочая), `completed` (квартал завершён), `carried_over` (перенесена в следующий квартал), `archived` (в истории) |
 | `result_status` | text, nullable | Статус результата при закрытии квартала: `success` (>= 70%), `partial` (40–69%), `failed` (< 40%). Заполняется при переходе в `completed`. |
 | `is_pinned` | boolean, default false | Признак закрепления для VISION-screensaver. Максимум 4 pinned на игрока. Pin запрещён, если `status = 'draft'`. |
 | `parent_objective_id` | uuid, FK → okr_objectives.id, nullable | Ссылка на предыдущий экземпляр цели при переносе между кварталами (carried_over). |
@@ -601,7 +601,7 @@
 | `kr_id` | uuid, FK → okr_key_results.id | KR, к которому относится событие |
 | `objective_id` | uuid, FK → okr_objectives.id | Цель, к которой относится KR (денормализовано) |
 | `player_id` | uuid, FK → players.id | Игрок‑владелец (денормализовано) |
-| `event_type` | text | Тип события: `create`, `update_value`, `update_target`, `update_weight`, `update_status`, `delete`, `comment` |
+| `event_type` | text | Тип события: `create`, `update_value`, `update_target`, `update_weight`, `update_status`, `delete`, `comment`, `quarter_closed` |
 | `old_value` | jsonb, nullable | Старое значение (например, `{"weight": 25, "target_value": 100}`) |
 | `new_value` | jsonb, nullable | Новое значение (например, `{"weight": 30, "target_value": 120}`) |
 | `note` | text, nullable | Текстовый комментарий пользователя (например, выводы по итогам спринта) |
