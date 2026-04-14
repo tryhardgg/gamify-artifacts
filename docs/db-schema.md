@@ -231,7 +231,7 @@
   },
   "screensaver": {
     "enabled": true,
-    "idle_timeout_sec": 300
+    "idle_timeout_sec": 180
   }
 }
 ```
@@ -246,7 +246,7 @@
   - В будущем может появиться дополнительный атрибут `type: "image" | "animation"` для поддержки анимаций.
 - Поле `screensaver` содержит:
   - `enabled` (boolean) — включён ли режим screensaver;
-  - `idle_timeout_sec` (integer) — таймаут бездействия в секундах, после которого запускается screensaver (по умолчанию 300 = 5 минут).
+  - `idle_timeout_sec` (integer) — таймаут бездействия в секундах, после которого запускается screensaver (по умолчанию 180 = 3 минуты).
 
 > **Примечание:** VISION — это специализированный тип артефакта внутри существующего модуля Artifacts. Новый модуль для VISION не вводится. Всё реализуется через `category = 'VISION'` + `metadata` jsonb.
 
@@ -493,7 +493,25 @@
 
 Личные OKR — отдельный слой над VISION, не артефакты и не часть интеграции с Singularity. В MVP все значения по KR задаются вручную через интерфейс приложения.
 
-### 8.1. Таблица `okr_objectives`
+### 8.1. Таблица `okr_quarters`
+
+Кварталы, автоматически генерируемые системой.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор квартала |
+| `code` | text, unique | Код квартала: `2026-Q1`, `2026-Q2`, `2026-Q3`, `2026-Q4` |
+| `start_date` | date | Дата начала квартала |
+| `end_date` | date | Дата окончания квартала |
+| `created_at` | timestamptz, default now() | Дата и время создания записи |
+
+**Автоматическая генерация:** система создаёт 4 квартала на каждый год:
+- Q1: 01.01–31.03
+- Q2: 01.04–30.06
+- Q3: 01.07–30.09
+- Q4: 01.10–31.12
+
+### 8.2. Таблица `okr_objectives`
 
 Цели игрока на период в конкретной сфере VISION.
 
@@ -501,21 +519,43 @@
 |------|-----|----------|
 | `id` | uuid, PK | Уникальный идентификатор цели |
 | `player_id` | uuid, FK → players.id | Игрок‑владелец цели |
+| `quarter_id` | uuid, FK → okr_quarters.id | Квартал, к которому привязана цель |
 | `sphere` | text | Сфера VISION: `state` (Тело и энергия), `finances` (Деньги и свобода), `hobbies` (Хобби), `relationships` (Любовь и близость) |
 | `title` | text | Краткая формулировка цели (Objective) |
+| `purpose` | text, nullable | Мотивационный текст «зачем» эта цель. Показывается в screensaver как цитата. |
+| `objective_type` | text, default 'normal' | Тип цели: `normal` (обычная), `stretch` (амбициозная), `crazy` (экстремальная). Выбирается при создании, не вычисляется автоматически. |
 | `description` | text, nullable | Развёрнутое описание/контекст цели |
-| `period` | text | Период OKR, например: `2026-Q2`, `2026-H1`, `2026` |
 | `weight` | integer, default 1 | Вес цели внутри сферы (для будущей взвешенной агрегации прогресса по сфере) |
-| `status` | text, default 'active' | Статус цели: `active`, `completed`, `archived` |
+| `status` | text, default 'draft' | Статус цели: `draft` (черновик), `active` (рабочая), `completed` (квартал завершён), `archived` (в истории) |
+| `result_status` | text, nullable | Статус результата при закрытии квартала: `success` (>= 70%), `partial` (40–69%), `failed` (< 40%). Заполняется при переходе в `completed`. |
+| `is_pinned` | boolean, default false | Признак закрепления для VISION-screensaver. Максимум 4 pinned на игрока. Pin запрещён, если `status = 'draft'`. |
+| `parent_objective_id` | uuid, FK → okr_objectives.id, nullable | Ссылка на предыдущий экземпляр цели при переносе между кварталами (carried_over). |
 | `created_at` | timestamptz, default now() | Дата и время создания цели |
 | `updated_at` | timestamptz, default now() | Дата и время последнего изменения цели |
 
 **Примечания:**
 
 - В MVP прогресс цели не кэшируется в этой таблице, а вычисляется по связанным KR.
+- **Переходы статусов:** `draft` → `active` автоматически, когда сумма весов KR = 100%. `active` → `completed` при закрытии квартала. `completed` → `archived` вручную или автоматически.
+- **Pin-валидация:** `is_pinned = true` разрешено только если `status != 'draft'` и у Objective есть минимум 1 картинка в `objective_images`. Максимум 4 pinned на игрока — проверка на уровне бизнес-логики.
 - Возможен более чем один Objective на сферу и период, но рекомендуется ограничивать их количество бизнес‑логикой (например, 1–3 цели на сферу за период).
 
-### 8.2. Таблица `okr_key_results`
+### 8.3. Таблица `objective_images`
+
+Картинки, привязанные к Objective. Хранятся в Supabase Storage.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор картинки |
+| `objective_id` | uuid, FK → okr_objectives.id, ON DELETE CASCADE | Objective, к которому относится картинка |
+| `player_id` | uuid, FK → players.id | Игрок‑владелец (денормализовано для удобства выборок) |
+| `storage_path` | text | Путь к файлу в Supabase Storage (например, `objectives/<player_id>/<objective_id>/uuid.jpg`) |
+| `sort_order` | integer, default 0 | Порядок сортировки в галерее |
+| `created_at` | timestamptz, default now() | Дата и время загрузки |
+
+**Инвариант:** если `objective.is_pinned = true`, то у Objective должна быть минимум 1 запись в `objective_images`.
+
+### 8.4. Таблица `okr_key_results`
 
 Измеримые результаты (Key Results) для каждой цели.
 
@@ -528,6 +568,7 @@
 | `title` | text | Формулировка KR (измеримый результат) |
 | `type` | text, default 'numeric' | Тип KR: `numeric` (числовой), `binary` (сделано/нет), `qualitative` (оценка 0–1 по ощущениям) |
 | `unit` | text, nullable | Единицы измерения: `%`, `steps`, `RUB`, `kg`, `hours_per_week`, `times_per_week` и т.п. |
+| `weight` | integer, nullable | Вес KR в прогрессе Objective (шаг 5%, сумма всех KR Objective = 100%). Nullable при создании — Objective в состоянии «черновик», пока веса не распределены. |
 | `start_date` | date | Дата начала отслеживания KR |
 | `end_date` | date | Дата окончания (дедлайн) KR |
 | `start_value` | numeric | Стартовое значение метрики |
@@ -547,6 +588,77 @@
 - **Формула прогресса (numeric):** `progress_percent = ((current_value - start_value) / NULLIF(target_value - start_value, 0)) × 100`, ограничено 0–100.
 - **OKR‑оценка:** `okr_score = progress_percent / 100`, ограничено 0–1.
 - **Статус по порогам:** `start` (0–30%), `in_progress` (30–70%), `near_goal` (70–99%), `done` (>=100%).
+- **Взвешенный прогресс Objective:** `progress_objective = Σ(weight_kr × progress_percent_kr / 100)`. Пока `weight` не распределены (сумма ≠ 100%), Objective = «черновик», прогресс = 0.
+- **CHECK-ограничение:** `CHECK (weight IS NULL OR (weight >= 0 AND weight <= 100 AND weight % 5 = 0))`.
+
+### 8.5. Таблица `okr_kr_log`
+
+Единый лог событий по KR для ретроспективы и аудита.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор события |
+| `kr_id` | uuid, FK → okr_key_results.id | KR, к которому относится событие |
+| `objective_id` | uuid, FK → okr_objectives.id | Цель, к которой относится KR (денормализовано) |
+| `player_id` | uuid, FK → players.id | Игрок‑владелец (денормализовано) |
+| `event_type` | text | Тип события: `create`, `update_value`, `update_target`, `update_weight`, `update_status`, `delete`, `comment` |
+| `old_value` | jsonb, nullable | Старое значение (например, `{"weight": 25, "target_value": 100}`) |
+| `new_value` | jsonb, nullable | Новое значение (например, `{"weight": 30, "target_value": 120}`) |
+| `note` | text, nullable | Текстовый комментарий пользователя (например, выводы по итогам спринта) |
+| `created_at` | timestamptz, default now() | Дата и время события |
+| `created_by` | uuid, FK → players.id | Игрок, совершивший изменение (для MVP = `player_id`) |
+
+**Примечания:**
+
+- Запись создаётся при каждом изменении значимых параметров KR: `current_value`, `target_value`, `weight`, `status`, а также при создании/удалении KR и добавлении комментария.
+- В UI лог фильтруется по периоду, типу события, конкретному KR.
+
+### 8.6. Таблица `retrospective_notes`
+
+Заметки рефлексии по итогам квартала.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор записи |
+| `quarter_id` | uuid, FK → okr_quarters.id | Квартал, к которому относится ретроспектива |
+| `player_id` | uuid, FK → players.id | Игрок‑владелец |
+| `what_went_well` | text, nullable | «Что получилось хорошо в этом квартале?» |
+| `what_didnt_work` | text, nullable | «Что не сработало?» |
+| `what_to_change` | text, nullable | «Что изменить в следующем квартале?» |
+| `created_at` | timestamptz, default now() | Дата и время создания |
+| `updated_at` | timestamptz, default now() | Дата и время последнего обновления |
+
+**Уникальный индекс:** `(player_id, quarter_id)` — одна запись ретроспективы на квартал.
+
+### 8.7. Таблица `achievements`
+
+Справочник косметических ачивок.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор ачивки |
+| `code` | text, unique | Машинно-читаемый код (`stretch_quarter`, `kr_closed`, `retrospective_master`) |
+| `name` | text | Человекочитаемое название |
+| `description` | text | Описание условия получения |
+| `icon` | text | Путь к иконке в Supabase Storage |
+| `type` | text | Тип: `okr_objective`, `okr_kr`, `okr_consistency`, `okr_retrospective` |
+| `rarity` | text, default 'common' | Редкость: `common`, `uncommon`, `rare` |
+| `is_active` | boolean, default true | Активна ли ачивка для выдачи |
+| `created_at` | timestamptz, default now() | Дата и время создания |
+
+### 8.8. Таблица `user_achievements`
+
+Связь игрока с полученными ачивками.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | uuid, PK | Уникальный идентификатор записи |
+| `player_id` | uuid, FK → players.id | Игрок, получивший ачивку |
+| `achievement_id` | uuid, FK → achievements.id | Шаблон ачивки |
+| `earned_at` | timestamptz, default now() | Дата и время получения |
+| `context` | jsonb, nullable | Контекст: ссылка на Objective/KR/quarter, за что выдана (например, `{"objective_id": "uuid", "quarter_id": "uuid"}`) |
+
+**Уникальный индекс:** `(player_id, achievement_id)` — одна ачивка на игрока (не выдаётся повторно).
 
 ---
 
@@ -567,8 +679,13 @@ players
   ├── habits (1:N)
   │     ├── habit_logs (1:N)
   │     └── habit_rewards (1:N) ──→ transactions, items
-  ├── okr_objectives (1:N)
-  │     └── okr_key_results (1:N)
+  ├── okr_quarters (1:N)
+  │     └── okr_objectives (1:N)
+  │           ├── okr_key_results (1:N)
+  │           ├── objective_images (1:N)
+  │           └── okr_kr_log (1:N)
+  ├── retrospective_notes (1:N) ──→ okr_quarters
+  ├── user_achievements (1:N) ──→ achievements
   └── singularity_tasks (1:N)
         └── artifact_task_links (1:N)
   └── task_mappings (1:N) ──→ artifact_templates
@@ -608,3 +725,9 @@ players
 | Один активный VISION на игрока: `UNIQUE (player_id) WHERE category = 'VISION' AND lifecycle_status = 'active'` | Artifacts |
 | Один KR всегда принадлежит одному Objective | OKR |
 | `okr_key_results.sphere` = `okr_objectives.sphere` (источник истины — цель) | OKR |
+| `okr_key_results.weight` сумма = 100% для активного Objective | OKR |
+| `objective.is_pinned = true` → минимум 1 картинка в `objective_images` | OKR |
+| Максимум 4 pinned Objective на игрока | OKR (бизнес-логика) |
+| Один активный VISION на игрока: `UNIQUE (player_id) WHERE category = 'VISION' AND lifecycle_status = 'active'` | Artifacts |
+| `retrospective_notes (player_id, quarter_id)` — уникальны | OKR |
+| `user_achievements (player_id, achievement_id)` — уникальны | OKR |

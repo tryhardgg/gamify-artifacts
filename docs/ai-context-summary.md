@@ -29,7 +29,10 @@
   - Максимум 1 активный на игрока (инвариант БД: partial unique index).
   - НЕ проходит 4 стадии, НЕ имеет наград/качества/редкости.
   - Хранит в `metadata` (jsonb): `vision_text`, 4 сферы с картинками, `screensaver` настройки.
-  - Используется для полноэкранного screensaver после N минут бездействия.
+  - Используется для полноэкранного screensaver после 3 минут бездействия.
+  - **Screensaver:** фон из 4 квадрантов (картинки pinned Objective), vision_text по центру, раз в 3 мин → purpose рандомной pinned Objective на 1 мин. Клик → закрыть, вернуться назад.
+  - VISION — отдельные картинки по сферам, не жёстко привязанные к pinned Objective. Версионирование изменений.
+  - (подробно: domain-model.md, раздел «VISION и экран визуализации»)
 
 ---
 
@@ -37,13 +40,25 @@
 
 - Отдельный слой над VISION, не модуль в строгом смысле.
 - Состоит из `Objectives` (цели по 4 сферам) и `Key Results` (измеримые метрики).
+- **Новые поля:** `purpose` (зачем, текстовое), `is_pinned` (макс 4), `quarter_id` (привязка к кварталу).
+- **Кварталы:** автогенерация (Q1–Q4), пользователь выбирает из списка. Перенос Objective между кварталами (`carried_over`, `parent_objective_id`).
+- **Картинки:** отдельная таблица `objective_images` (Supabase Storage). Мин 1 картинка для pinned Objective.
 - **Расчёт прогресса:** Выполняется ТОЛЬКО на бэкенде. Фронтенд шлёт только `current_value`.
   - `numeric`: `((current - start) / NULLIF(target - start, 0)) × 100`
   - `binary`: 0% до выполнения → 100% после.
   - `qualitative`: вводится вручную в UI (0–100%).
-- **Агрегация:** Прогресс цели = среднее `progress_percent` её KR. Прогресс сферы = среднее прогресса активных целей в сфере. Все типы KR участвуют на равных правах.
+- **Взвешенный прогресс Objective:** каждый KR имеет `weight` (шаг 5%, сумма = 100%). Прогресс Objective = Σ(weight × progress_percent_kr / 100). **Без распределённых весов Objective = «черновик», прогресс = 0.**
+- **Агрегация сфер:** Прогресс сферы = среднее прогресса активных целей в сфере. Все типы KR участвуют на равных правах.
+- **Жизненный цикл KR:** веса и target_value можно менять в течение квартала. Все изменения логируются (`okr_kr_log`).
+- **Награды за OKR:** ТОЛЬКО косметические ачивки. Нет валюты/XP за OKR. Stretch-цели: 60–80% = ачивка. Серия кварталов = редкая ачивка. Нет штрафов. (подробно: domain-model.md, раздел «Награды за OKR»)
+- **Ретроспектива квартала:** отдельный экран, 4 секции (сводка, итоги Objective, рефлексия с `retrospective_notes`, сравнение с прошлым кварталом). (подробно: domain-model.md, раздел «Ретроспектива квартала»)
+- **Черновик Objective:** без распределённых весов KR = бейдж «Черновик», прогресс 0%, pin запрещён, в screensaver не показывается.
+- **Типы Objective:** `normal` / `stretch` / `crazy` (выбор при создании, не авто). Влияет на ретроспективу, ачивки, UI-бейдж.
+- **Статусы Objective:** draft → active → completed → archived. draft → active автоматически (веса = 100%). completed = квартал завершён (не обязательно 100%). result_status: success/partial/failed.
+- **Ачивки:** сущность `achievements` + `user_achievements`. MVP: экран коллекции + тост + бейджи. Нет валюты/XP.
 - **На Dashboard:** Прогресс сфер отражает *текущий* агрегированный % за период. НЕ использует логику `progress_today` (она только для артефактов).
 - **Удаление:** `ON DELETE CASCADE` по `objective_id`. Удаление цели стирает все её KR.
+- (подробно: domain-model.md, раздел «Личные OKR»)
 
 ---
 
@@ -76,7 +91,12 @@
 - **Миграции БД:**
   - `transactions.type` → обязателен `CHECK` или `ENUM` (`reward`, `purchase`, `habit_reward`, `artifact_reward`, `bonus`, `correction`, `refund`).
   - `okr_key_results.objective_id` → `ON DELETE CASCADE`.
+  - `okr_key_results.weight` → `CHECK (weight >= 0 AND weight <= 100)`.
   - `artifacts` → partial unique index: `UNIQUE (player_id) WHERE category = 'VISION' AND lifecycle_status = 'active'`.
+  - `okr_objectives` → partial unique index: `UNIQUE (player_id) WHERE is_pinned = true AND lifecycle_status = 'active'` (макс 4, проверка на уровне бизнес-логики).
+  - `objective_images` → отдельная таблица, FK на `okr_objectives`, хранение в Supabase Storage.
+  - `okr_kr_log` → таблица истории KR: `event_type`, `old_value` (jsonb), `new_value` (jsonb), `created_at`, `created_by`, `note`.
+  - `okr_quarters` → таблица кварталов: `code` (2026-Q1), `start_date`, `end_date`, автогенерация.
 - **Singularity API:** Задача считается «новой» (первое появление), если её `external_id` отсутствует в `singularity_tasks` для данного `player_id`. Правила `task_mappings` применяются только один раз. Изменение тегов после создания артефакта не триггерит пересоздание.
 - **Кошелёк:** Создаётся автоматически при регистрации игрока. Начальный `balance = 0`. Стартовый бонус → отдельная транзакция `type='bonus'`, `source_module='system'`.
 - **Конкурентные обновления OKR (MVP):** Не реализуются. Правило: «последнее сохранение побеждает».

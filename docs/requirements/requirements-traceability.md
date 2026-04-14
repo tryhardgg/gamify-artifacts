@@ -10,17 +10,24 @@
 
 | # | Требование PO | Текущий docs/ | Статус | Решение | Файл для изменения |
 |---|---------------|---------------|--------|---------|-------------------|
-| 1 | Поле `purpose` (зачем) в Objective | Нет поля `purpose` в `objectives` | ⚠️ Расходится | Добавить поле `purpose TEXT` | `db-schema.md`, `domain-model.md` |
-| 2 | Pin/unpin для Objective (макс 4) | Нет механики pin/unpin | ⚠️ Расходится | Добавить `is_pinned BOOLEAN` + проверка макс 4 | `db-schema.md`, `domain-model.md` |
-| 3 | Картинки для Objective | Нет картинок у Objective | ⚠️ Расходится | Добавить хранение картинок (отдельная таблица или поле) | `db-schema.md` |
-| 4 | Screensaver чередует: vision_text → purpose на весь экран | Screensaver показывает только vision_text + 4 сферы | ⚠️ Расходится | Обновить логику screensaver | `ui-screens.md`, `domain-model.md` |
-| 5 | Одна форма: Objective + KR (сразу) | Не описан поток создания | ❓ Требует уточнения | Зафиксировать в use case | `ui-screens.md` |
-| 6 | Взвешенный прогресс KR (вместо среднего) | Прогресс Objective = среднее KR | ⚠️ Расходится | **КРИТИЧНО:** Изменить формулу на взвешенную. Добавить `weight DECIMAL` в KR, сумма = 100%. | `db-schema.md`, `domain-model.md` |
-| 7 | История изменений KR: все события | Нет логирования | ⚠️ Расходится | Таблица `kr_history`: `event_type` (create, update_value, update_weight, delete), `old_value`, `new_value`, `timestamp` | `db-schema.md` |
-| 8 | Перераспределение весов при удалении KR | Нет механики | ⚠️ Расходится | UI-диалог: распределить % между оставшимися KR или создать новый | `ui-screens.md` |
-| 9 | Веса KR можно менять в течение квартала | Веса не предусмотрены | ⚠️ Расходится | CRUD для `weight` с валидацией суммы = 100% | `db-schema.md`, `domain-model.md` |
-| 10 | Минимум 1 картинка для pinned Objective | Нет требования | ⚠️ Расходится | Валидация при pin: если нет картинок → ошибка | `domain-model.md` |
-| 11 | Objective не считает прогресс без распределённых весов | Прогресс считается всегда | ⚠️ Расходится | Состояние «черновик»: KR созданы, веса не распределены. Прогресс = 0. | `domain-model.md`, `db-schema.md` |
+| 1 | Поле `purpose` (зачем) в Objective | Нет поля `purpose` в `objectives` | 🔧 Принято решение | Добавлено поле `purpose TEXT` | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 2 | Pin/unpin для Objective (макс 4) | Нет механики pin/unpin | 🔧 Принято решение | Добавлено `is_pinned BOOLEAN` + проверка макс 4 | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 3 | Картинки для Objective | Нет картинок у Objective | 🔧 Принято решение | Добавлена таблица `objective_images` (Supabase Storage) | `db-schema.md` ✅ |
+| 4 | Screensaver чередует: vision_text → purpose на весь экран | Screensaver показывает только vision_text + 4 сферы | 🔧 Принято решение | Обновлена логика screensaver (3 мин таймер, чередование) | `db-schema.md` ✅, `domain-model.md` ✅, `ui-screens.md` ✅ |
+| 5 | Одна форма: Objective + KR (сразу) | Не описан поток создания | 🔧 Принято решение | Зафиксировано в use case | `ui-screens.md` ✅ |
+| 6 | Взвешенный прогресс KR (вместо среднего) | Прогресс Objective = среднее KR | 🔧 Принято решение | **КРИТИЧНО:** Добавлено поле `weight` в KR, формула Σ(weight × progress_percent_kr / 100) | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 7 | История изменений KR: все события | Нет логирования | 🔧 Принято решение | Таблица `okr_kr_log` с типами событий | `db-schema.md` ✅ |
+| 8 | Перераспределение весов при удалении KR | Нет механики | 🔧 Принято решение | UI-диалог: распределить % между оставшимися KR или создать новый | `ui-screens.md` ✅ |
+| 9 | Веса KR можно менять в течение квартала | Веса не предусмотрены | 🔧 Принято решение | CRUD для `weight` с CHECK-ограничением (сумма = 100%, шаг 5%) | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 10 | Минимум 1 картинка для pinned Objective | Нет требования | 🔧 Принято решение | Валидация при pin: если нет картинок → ошибка | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 11 | Objective не считает прогресс без распределённых весов | Прогресс считается всегда | 🔧 Принято решение | Состояние «черновик»: KR созданы, веса не распределены. Прогресс = 0. | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 12 | Награды за OKR — только косметические ачивки | Не описано | 🔧 Принято решение | Нет валюты/XP за OKR. Ачивки за Stretch (60–80%), стрик, серию кварталов, ретроспективу. Нет штрафов. | `db-schema.md` ✅, `domain-model.md` ✅, `ai-context-summary.md` ✅ |
+| 13 | Экран ретроспективы квартала | Не описан | 🔧 Принято решение | 4 секции: сводка, список Objective с итогами, рефлексия (`retrospective_notes`), сравнение с прошлым кварталом. | `db-schema.md` ✅, `ui-screens.md` ✅, `domain-model.md` ✅ |
+| 14 | Состояние «черновик» Objective | Не описано | 🔧 Принято решение | Бейдж «Черновик», прогресс 0%. Pin запрещён. В screensaver не показывается. | `db-schema.md` ✅, `domain-model.md` ✅, `ui-screens.md` ✅ |
+| 15 | MVP: KR только manual, без подсказок привычек | Не описано | ✅ Совпадает | `source = 'manual'` по умолчанию. Интеграция с Habits — Epic 4+. | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 16 | Типы Objective (Normal/Stretch/Crazy) | Не описано | 🔧 Принято решение | Поле `objective_type` при создании. Влияет на ретроспективу, ачивки, UI-бейдж. | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 17 | Ачивки: отдельная сущность | Не описано | 🔧 Принято решение | `achievements` + `user_achievements`. MVP: экран + тост + бейджи. | `db-schema.md` ✅, `domain-model.md` ✅, `ui-screens.md` ✅ |
+| 18 | Статусы Objective: draft/active/completed/archived | Только active/completed/archived | 🔧 Принято решение | draft → active (авто, веса=100%). completed = квартал завершён. result_status: success/partial/failed. | `db-schema.md` ✅, `domain-model.md` ✅ |
 
 ### Статусы:
 - ✅ **Совпадает** — требование PO соответствует docs/
