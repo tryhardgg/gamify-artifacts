@@ -10,15 +10,53 @@
 
 ## Доменные модули
 
-Система состоит из семи доменных модулей:
+Система состоит из девяти доменных модулей:
 
 - **Player** — профиль и данные игрока.
 - **Economy** — валюта, баланс и все транзакции.
 - **Inventory** — учёт количества предметов у игрока.
 - **Shop** — каталог товаров и склад.
-- **Artifacts** — связь реальных действий с наградами, генерация и выдача артефактов.
+- **Artifacts** — связь реальных действий с наградами, генерация и выдача артефактов. Включает VISION как специальный тип артефакта.
 - **Habits** — привычки как пассивные бафы и ежедневные задания (дейлики).
 - **SingularityIntegration** — интеграция с API Singularity: получение задач и тегов.
+- **OKR** — личные цели и ключевые результаты по 4 сферам VISION.
+- **Achievements** — каталог ачивок и выдача за достижения в OKR, Habits, Artifacts.
+
+### Модульные границы и правила взаимодействия
+
+**Принцип «один владелец ресурса»:** каждый модуль — единственный владелец своих данных. Никакой другой модуль не имеет права напрямую изменять чужие таблицы.
+
+| Модуль | Владеет | Не трогает напрямую |
+|--------|---------|---------------------|
+| Economy | `wallets`, `transactions` | Баланс не меняется никем кроме Economy |
+| Inventory | `items`, `inventory_items` | Количество предметов не меняется никем кроме Inventory |
+| Shop | `products`, `purchases` | Не меняет баланс (зовёт Economy), не выдаёт предметы (зовёт Inventory) |
+| Artifacts | `artifacts`, `artifact_stages`, `artifact_task_links`, `artifact_evaluations`, `artifact_rewards`, `artifact_templates` | Не начисляет валюту/предметы напрямую (зовёт Economy/Inventory) |
+| Habits | `habits`, `habit_logs`, `habit_rewards` | Не начисляет валюту/предметы напрямую (зовёт Economy/Inventory) |
+| SingularityIntegration | `singularity_tasks`, `task_mappings`, `sync_logs` | Не принимает решений о наградах, не меняет прогресс артефактов напрямую |
+| OKR | `okr_quarters`, `okr_objectives`, `okr_key_results`, `objective_images`, `okr_kr_log`, `retrospective_notes` | Не раздаёт валюту/XP. Для ачивок вызывает Achievements |
+| Achievements | `achievements`, `user_achievements` | Не меняет доменные сущности. Слушает события от OKR/Habits/Artifacts |
+| Player | `players` | Не управляет балансом, предметами, артефактами |
+
+**Направления вызовов:**
+
+```
+OKR ──> Achievements (проверка условий при обновлении KR, закрытии квартала)
+Habits ──> Achievements (проверка стриков, уровней)
+Artifacts ──> Achievements (проверка завершения артефактов)
+
+Shop ──> Economy (списание валюты)
+Shop ──> Inventory (выдача предметов)
+Habits ──> Economy/Inventory (награды за привычки)
+Artifacts ──> Economy/Inventory (награды за артефакты)
+
+SingularityIntegration ──> Artifacts (факты выполненных задач)
+SingularityIntegration ──> Habits (факты выполненных привычек)
+```
+
+**Событийное взаимодействие для ачивок:** OKR, Habits и Artifacts не пишут напрямую в `user_achievements`. Вместо этого они вызывают публичную операцию `Achievements.CheckConditions(context)` с доменным событием (например, `KRUpdated`, `QuarterClosed`, `HabitStreakReached`). Achievements сам проверяет условия и создаёт запись, если условие выполнено. Это позволяет позже вынести Achievements в отдельный модуль без рефакторинга зависимостей.
+
+**VISION как специальный тип артефакта:** VISION реализован внутри модуля Artifacts через `category = 'VISION'`. К нему **не применяются** стандартные правила артефактов: нет 4-стадийного цикла, нет наград, нет качества/редкости. VISION хранит текст видения, 4 сферы с картинками и настройки screensaver в `metadata`. Модуль Artifacts обязан проверять этот инвариант и не создавать дубликаты VISION на игрока.
 
 ---
 
