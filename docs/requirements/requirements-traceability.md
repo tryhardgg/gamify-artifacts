@@ -27,7 +27,8 @@
 | 15 | MVP: KR только manual, без подсказок привычек | Не описано | ✅ Совпадает | `source = 'manual'` по умолчанию. Интеграция с Habits — Epic 4+. | `db-schema.md` ✅, `domain-model.md` ✅ |
 | 16 | Типы Objective (Normal/Stretch/Crazy) | Не описано | 🔧 Принято решение | Поле `objective_type` при создании. Влияет на ретроспективу, ачивки, UI-бейдж. | `db-schema.md` ✅, `domain-model.md` ✅ |
 | 17 | Ачивки: отдельная сущность | Не описано | 🔧 Принято решение | `achievements` + `user_achievements`. MVP: экран + тост + бейджи. | `db-schema.md` ✅, `domain-model.md` ✅, `ui-screens.md` ✅ |
-| 18 | Статусы Objective: draft/active/completed/archived | Только active/completed/archived | 🔧 Принято решение | draft → active (авто, веса=100%). completed = квартал завершён. result_status: success/partial/failed. | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 18 | Статусы Objective: draft/active/completed/archived | Только active/completed/archived | 🔧 Принято решение | draft → active (авто, веса=100%). completed = квартал завершён. result_status: success/partial/failed. `carried_over` — отдельный статус для переноса. completed → archived только вручную (MVP). | `db-schema.md` ✅, `domain-model.md` ✅ |
+| 19 | Crazy-ачивки в MVP | Не описано | 🔧 Принято решение | Отдельные ачивки за `crazy` в MVP не вводятся. Отличие crazy — трактовка в ретроспективе (40–60% = осознанный эксперимент). Тема будущих эпиков. | `domain-model.md` ✅ |
 
 ### Статусы:
 - ✅ **Совпадает** — требование PO соответствует docs/
