@@ -1,0 +1,99 @@
+graph TD
+    %% ==========================================
+    %% АКТОРЫ
+    %% ==========================================
+    Player((Игрок))
+    IdleTimer((Таймер бездействия))
+
+    %% ==========================================
+    %% ГРАНИЦА СИСТЕМЫ: МОДУЛЬ OKR
+    %% ==========================================
+    subgraph OKR_System [Система OKR]
+        
+        %% --- Основные сценарии управления целями ---
+        UC_ViewOKR(Просмотр OKR квартала)
+        UC_CreateObj(Создать Objective)
+        UC_EditObj(Редактировать Objective)
+        UC_DeleteObj(Удалить Objective)
+        
+        %% --- Сценарии работы с Key Results ---
+        UC_AddKR(Добавить Key Result)
+        UC_EditKR(Редактировать Key Result)
+        UC_DistributeWeights(Распределить веса KR)
+        UC_ViewKRHistory(Просмотр истории изменений KR)
+        
+        %% --- Сценарии взаимодействия с VISION/Screensaver ---
+        UC_PinObjective(Закрепить Objective в Screensaver)
+        UC_Screensaver(Просмотр VISION Screensaver)
+        
+        %% --- Сценарии управления кварталом ---
+        UC_CloseQuarter(Закрыть квартал)
+        UC_CarryOver(Перенести Objective в следующий квартал)
+        
+        %% --- Сценарии ретроспективы и анализа ---
+        UC_ViewRetro(Просмотр ретроспективы)
+        UC_FillReflection(Заполнить заметки рефлексии)
+        
+        %% --- Сценарии геймификации ---
+        UC_ViewAchievements(Просмотр достижений)
+        UC_CheckAchievements(Проверить условия ачивок)
+        
+        %% --- Внутренние системные сценарии (для include/extend) ---
+        UC_ActivateObj(Активировать Objective)
+        UC_ShowPurposeQuote(Показать цитату purpose)
+    end
+
+    %% ==========================================
+    %% СВЯЗИ: АКТОРЫ → USE CASES
+    %% ==========================================
+    
+    %% Игрок взаимодействует со всеми основными сценариями
+    Player --> UC_ViewOKR
+    Player --> UC_CreateObj
+    Player --> UC_EditObj
+    Player --> UC_DeleteObj
+    Player --> UC_AddKR
+    Player --> UC_EditKR
+    Player --> UC_DistributeWeights
+    Player --> UC_ViewKRHistory
+    Player --> UC_PinObjective
+    Player --> UC_CloseQuarter
+    Player --> UC_CarryOver
+    Player --> UC_ViewRetro
+    Player --> UC_FillReflection
+    Player --> UC_ViewAchievements
+    
+    %% Таймер бездействия запускает screensaver автоматически
+    IdleTimer --> UC_Screensaver
+
+    %% ==========================================
+    %% СВЯЗИ: INCLUDE (обязательные вызовы)
+    %% ==========================================
+    
+    %% По нашему флоу создание Objective включает добавление KR
+    UC_CreateObj -- "include" --> UC_AddKR
+    
+    %% Распределение весов необходимо для активации Objective
+    UC_DistributeWeights -- "include" --> UC_ActivateObj
+    
+    %% Закрытие квартала включает предложение ретроспективы
+    UC_CloseQuarter -- "include" --> UC_ViewRetro
+
+    %% ==========================================
+    %% СВЯЗИ: EXTEND (опциональные/условные)
+    %% ==========================================
+    
+    %% Ачивки проверяются автоматически при закрытии квартала
+    UC_CloseQuarter -. "extend" .-> UC_CheckAchievements
+    
+    %% Screensaver периодически показывает цитату purpose
+    UC_Screensaver -. "extend" .-> UC_ShowPurposeQuote
+    
+    %% Заметки рефлексии дополняют ретроспективу (опционально)
+    UC_ViewRetro -. "extend" .-> UC_FillReflection
+
+    %% ==========================================
+    %% ДОПОЛНИТЕЛЬНЫЕ USE CASES (для extend)
+    %% ==========================================
+    UC_ActivateObj(Активировать Objective)
+    UC_ShowPurposeQuote(Показать цитату purpose)

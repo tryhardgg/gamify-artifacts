@@ -1,0 +1,41 @@
+stateDiagram-v2
+    [*] --> draft : Создание Objective
+
+    draft --> active : Ввод весов KR [sum(weights) == 100%]
+    
+    active --> completed : Закрытие квартала
+    active --> carried_over : Перенос в следующий квартал
+
+    completed --> carried_over : Перенос завершённой цели
+    completed --> archived : Архивирование вручную
+    carried_over --> archived : Архивирование вручную
+
+    archived --> [*]
+
+    note right of draft
+        Веса KR не распределены
+        Прогресс = 0
+        Pin запрещён
+    end note
+
+    note right of active
+        Прогресс считается по формуле Σ(weight × progress_kr / 100)
+        Доступен Pin/Unpin (при наличии ≥1 картинки)
+    end note
+
+    note right of completed
+        Прогресс зафиксирован
+        result_status: success/partial/failed
+        is_pinned сброшен в false
+        KR заблокированы от редактирования
+    end note
+
+    note right of carried_over
+        Историческая запись в старом квартале
+        В новом квартале создаётся новый экземпляр с parent_objective_id
+    end note
+
+    note right of archived
+        Только для чтения
+        Доступна в ретроспективе и истории
+    end note
